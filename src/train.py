@@ -11,19 +11,33 @@ import os
 # Load dataset
 df = pd.read_csv("data/winequality-red.csv", sep=';')
 
-# Preprocessing
+df.columns = df.columns.str.strip()
+df.columns = df.columns.str.replace(" ", "_")
+
+# Convert to classification
 df['quality'] = df['quality'].apply(lambda x: 1 if x >= 7 else 0)
 
+print("Class distribution:\n", df['quality'].value_counts())
+
+# Features
 X = df.drop('quality', axis=1)
 y = df['quality']
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+# Split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
 
-# MLflow setup
+model = RandomForestClassifier(
+    n_estimators=100,
+    class_weight="balanced",   
+    random_state=42
+)
+
+# MLflow
 mlflow.set_experiment("2022BCS0092_experiment")
 
 with mlflow.start_run():
-    model = RandomForestClassifier(n_estimators=100)
     model.fit(X_train, y_train)
 
     preds = model.predict(X_test)
@@ -31,12 +45,18 @@ with mlflow.start_run():
     acc = accuracy_score(y_test, preds)
     f1 = f1_score(y_test, preds)
 
-    mlflow.log_param("model", "RandomForest")
-    mlflow.log_metric("accuracy", acc)
-    mlflow.log_metric("f1_score", f1)
+    print("Accuracy:", acc)
+    print("F1 Score:", f1)
 
+    # Save model
     os.makedirs("models", exist_ok=True)
     joblib.dump(model, "models/model.pkl")
+
+    # MLflow logging
+    mlflow.log_param("model", "RandomForest")
+    mlflow.log_param("class_weight", "balanced")
+    mlflow.log_metric("accuracy", acc)
+    mlflow.log_metric("f1_score", f1)
 
     mlflow.sklearn.log_model(model, "model")
 
